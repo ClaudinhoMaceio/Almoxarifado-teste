@@ -1,0 +1,17 @@
+{
+  "name": "SaneGestão Pro",
+  "short_name": "SaneGestão",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f1f5f9",
+  "theme_color": "#0284c7",
+  "description": "Controle de materiais e equipamentos para almoxarifado.",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Crect width='128' height='128' rx='24' fill='%230284c7'/%3E%3Cpath d='M28 40h72v48H28z' fill='white'/%3E%3Cpath d='M28 56h72' stroke='%230284c7' stroke-width='8'/%3E%3C/svg%3E",
+      "sizes": "128x128",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
