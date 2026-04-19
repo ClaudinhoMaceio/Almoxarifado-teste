@@ -2,11 +2,9 @@ const CACHE_NAME = "sanegestao-pro-v1";
 const APP_SHELL = [
   "./",
   "./index.html",
+  "./tailwind.css",
   "./manifest.webmanifest",
   "./sw.js",
-  "https://cdn.tailwindcss.com",
-  "https://apis.google.com/js/api.js",
-  "https://accounts.google.com/gsi/client",
   "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",
   "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
 ];
