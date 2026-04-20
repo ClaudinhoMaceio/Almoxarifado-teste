@@ -1,0 +1,24 @@
+{
+  "name": "CSMM app's - Formulário de Campo",
+  "short_name": "CSMM Campo",
+  "description": "Formulário de campo para registro técnico de obras",
+  "start_url": "./formulario-campo.html",
+  "display": "standalone",
+  "background_color": "#667eea",
+  "theme_color": "#1d4ed8",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect fill='%231d4ed8' width='100' height='100' rx='20'/%3E%3Cpath fill='white' d='M50 20L30 40v30l20 20 20-20V40z'/%3E%3C/svg%3E",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect fill='%231d4ed8' width='100' height='100' rx='20'/%3E%3Cpath fill='white' d='M50 20L30 40v30l20 20 20-20V40z'/%3E%3C/svg%3E",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
