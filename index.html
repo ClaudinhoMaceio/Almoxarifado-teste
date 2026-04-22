@@ -1396,7 +1396,8 @@
             "canRequestItems",
             "canRequestIpi",
             "canViewDashboard",
-            "canUseChat"
+            "canUseChat",
+            "canSearchAllWarehouses"
         ];
 
         /** Colunas da tabela «Meu Estoque» que o administrador pode ocultar por usuário (desmarcado = não vê). */
@@ -1433,6 +1434,7 @@
                 canRequestIpi: "Solicitar IPI adicional",
                 canViewDashboard: "Visualizar painel",
                 canUseChat: "Usar bate-papo da equipe",
+                canSearchAllWarehouses: "Buscar material em todos os armazéns (só almoxarife com liberação)",
                 viewStock_code: "Mostrar coluna Código",
                 viewStock_item: "Mostrar coluna Item",
                 viewStock_category: "Mostrar coluna Categoria",
@@ -1630,6 +1632,7 @@
                     canRequestIpi: true,
                     canViewDashboard: true,
                     canUseChat: true,
+                    canSearchAllWarehouses: true,
                     ...cols
                 };
             }
@@ -1645,6 +1648,7 @@
                     canRequestIpi: true,
                     canViewDashboard: true,
                     canUseChat: true,
+                    canSearchAllWarehouses: false,
                     ...cols
                 };
             }
@@ -1659,6 +1663,7 @@
                 canRequestIpi: false,
                 canViewDashboard: false,
                 canUseChat: false,
+                canSearchAllWarehouses: false,
                 ...cols
             };
         }
@@ -2218,7 +2223,13 @@
                     ui.refreshBrandFromState();
                     if (auth.currentUser) {
                         auth.refreshCurrentUser();
-                        ui.renderAll();
+                        const modal = document.getElementById("modal");
+                        const modalOpen = modal && !modal.classList.contains("hidden");
+                        if (modalOpen) {
+                            ui.updateStats();
+                        } else {
+                            ui.renderAll();
+                        }
                     }
                 } finally {
                     this.isSyncing = false;
@@ -2998,14 +3009,11 @@
                     const ids = db.state.warehouses.filter((w) => norm(w.name) === norm(userWh.name)).map((w) => w.id);
                     return db.state.orders.filter((o) => ids.includes(o.warehouseId));
                 }
+                const myKey = auth.normalizeUsername(auth.currentUser.user);
                 return db.state.orders.filter((o) => {
-                    if (o.requesterUserId !== auth.currentUser.user) return false;
-                    if (o.warehouseId === auth.currentUser.warehouseId) return true;
-                    const userWh = db.state.warehouses.find((w) => w.id === auth.currentUser.warehouseId);
-                    if (!userWh) return false;
-                    const orderWh = db.state.warehouses.find((w) => w.id === o.warehouseId);
-                    const norm = (v) => String(v || "").trim().toLowerCase();
-                    return orderWh && norm(orderWh.name) === norm(userWh.name);
+                    const req = o.requesterUserId;
+                    if (req == null || String(req).trim() === "" || String(req) === "desconhecido") return false;
+                    return auth.normalizeUsername(req) === myKey;
                 });
             },
             updateStats() {
@@ -3161,16 +3169,28 @@
                     </tr>
                 `).join("");
             },
+            globalSearchItemsPool() {
+                if (!auth.currentUser) return db.state.items;
+                if (auth.currentUser.role === "admin" || auth.currentUser.warehouseId === "all") return db.state.items;
+                if (auth.hasPermission("canSearchAllWarehouses")) return db.state.items;
+                return this.userItemsScope();
+            },
             renderGlobalSearch() {
                 const input = document.getElementById("input-global-search");
-                const query = input.value.trim().toLowerCase();
+                const query = (input && input.value) ? input.value.trim().toLowerCase() : "";
                 const container = document.getElementById("global-results");
                 if (!query) {
-                    container.innerHTML = '<div class="text-slate-400">Digite um termo para buscar nos armazéns.</div>';
+                    const u = auth.currentUser;
+                    const canAll = u && (u.role === "admin" || u.warehouseId === "all" || auth.hasPermission("canSearchAllWarehouses"));
+                    const msg = canAll
+                        ? "Digite um termo para buscar em todos os armazéns cadastrados."
+                        : "Digite um termo para buscar no seu armazém. O administrador pode liberar a busca em todos os armazéns (Usuários → Permissões).";
+                    if (container) container.innerHTML = `<div class="text-slate-400">${msg}</div>`;
                     return;
                 }
-                const pool = this.userItemsScope();
+                const pool = this.globalSearchItemsPool();
                 const matches = pool.filter((i) => i.name.toLowerCase().includes(query) || i.category.toLowerCase().includes(query) || String(i.code || "").toLowerCase().includes(query));
+                if (!container) return;
                 container.innerHTML = matches.map((i) => {
                     const wh = db.state.warehouses.find((w) => w.id === i.warehouseId);
                     return `<div class="bg-white p-5 rounded-2xl shadow-sm"><p class="font-bold">${i.name}</p><p class="text-xs text-slate-500">${i.category} • ${i.area === "SABESP" ? "SABESP" : "PRÓPRIO"} • Código: ${i.code || "-"}</p><p class="text-sm mt-2">Qtd: <b>${i.qty} ${i.unit || "UN"}</b></p><p class="text-xs text-slate-400 mt-2">${wh ? wh.name : "Não disponível"} - ${wh?.city || "Sem cidade"}</p></div>`;
@@ -3178,6 +3198,11 @@
             },
             renderRequests() {
                 const container = document.getElementById("list-requests");
+                if (!container) return;
+                const escAttr = (s) => String(s ?? "")
+                    .replace(/&/g, "&amp;")
+                    .replace(/"/g, "&quot;")
+                    .replace(/</g, "&lt;");
                 const orders = this.userOrdersScope();
                 const canManageOrders = auth.hasPermission("canManageOrders");
                 const canDeleteOrders = auth.currentUser?.role === "admin";
@@ -3201,17 +3226,23 @@
                     return;
                 }
 
-                const grouped = {};
-                orders.forEach((o) => {
-                    if (!grouped[o.requesterUserId]) grouped[o.requesterUserId] = { userName: o.requesterName, orders: [] };
-                    grouped[o.requesterUserId].orders.push(o);
+                const prevOpenGids = new Set();
+                container.querySelectorAll("details[data-req-group]").forEach((d) => {
+                    if (d.open) prevOpenGids.add(d.getAttribute("data-req-group") || "");
                 });
 
-                container.innerHTML = Object.keys(grouped).map((userId) => {
+                const grouped = {};
+                orders.forEach((o) => {
+                    const gid = String(o.requesterUserId || o.requesterName || o.id || "sem-solicitante");
+                    if (!grouped[gid]) grouped[gid] = { userName: o.requesterName, orders: [] };
+                    grouped[gid].orders.push(o);
+                });
+
+                const html = Object.keys(grouped).map((userId) => {
                     const group = grouped[userId];
                     const pending = group.orders.filter((o) => o.status !== "delivered").length;
                     return `
-                        <details class="bg-white rounded-3xl border border-slate-100 shadow-sm p-5">
+                        <details data-req-group="${escAttr(userId)}" class="bg-white rounded-3xl border border-slate-100 shadow-sm p-5">
                             <summary class="cursor-pointer list-none flex items-center justify-between">
                                 <div>
                                     <p class="font-bold text-slate-800">${group.userName}</p>
@@ -3249,6 +3280,17 @@
                         </details>
                     `;
                 }).join("") || '<div class="text-slate-400">Nenhum pedido encontrado.</div>';
+                container.innerHTML = html;
+                if (prevOpenGids.size) {
+                    requestAnimationFrame(() => {
+                        prevOpenGids.forEach((gid) => {
+                            const d = Array.from(container.querySelectorAll("details[data-req-group]")).find(
+                                (el) => (el.getAttribute("data-req-group") || "") === gid
+                            );
+                            if (d) d.open = true;
+                        });
+                    });
+                }
             },
             renderHistory() {
                 const container = document.getElementById("history-list");
