@@ -892,7 +892,8 @@
                         <h3 id="stat-alerts" class="text-4xl font-black text-red-500 mt-2">0</h3>
                     </div>
                     <div class="bg-white p-6 rounded-3xl shadow-sm">
-                        <p class="text-slate-400 text-sm uppercase font-bold">Pedidos Aguardando</p>
+                        <p class="text-slate-400 text-sm uppercase font-bold">Pedidos em aberto</p>
+                        <p class="text-[10px] text-slate-400 font-medium mt-0.5">Pendente e separado (ainda não entregue)</p>
                         <h3 id="stat-orders" class="text-4xl font-black text-blue-500 mt-2">0</h3>
                     </div>
                     <div class="bg-white p-6 rounded-3xl shadow-sm">
@@ -1172,7 +1173,7 @@
         </main>
     </div>
 
-    <div id="team-chat-root" class="hidden fixed bottom-5 right-5 z-[90] flex flex-col items-end gap-3 max-w-[calc(100vw-1.5rem)]">
+    <div id="team-chat-root" class="hidden fixed bottom-5 right-5 z-[120] flex flex-col items-end gap-3 max-w-[calc(100vw-1.5rem)] pointer-events-auto">
         <div id="team-chat-panel" class="hidden flex flex-col w-[min(100vw-2rem,380px)] h-[min(72vh,520px)] rounded-2xl shadow-2xl border border-slate-200 bg-white overflow-hidden origin-bottom-right animate-fade">
             <div class="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200 bg-slate-50">
                 <div>
@@ -1202,7 +1203,7 @@
     <script>
         const APP_DB_PATH = "almoxarifado/database.json";
         const REMOTE_DATA_FOLDER_URL = "https://drive.google.com/drive/folders/1XrxLScRhIQ7iNciyWkoAHVaDFIhKYmUO?usp=drive_link";
-        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwuwjzjRZ_1GFhg1byZZOxpcQ-eAy1takbdHLJtgWCjZDLU1P-d3QlglifcIVVHP7jHRA/exec";
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzio0B4jmWxB4XX0n5p2YQ5HmG8vecIjjtuUffG4UQZGMapJNz_pefmv6W5qWJSy_pu/exec";
         const STORAGE_KEY = "sanegestao_db";
         const PENDING_SYNC_KEY = "sanegestao_pending_cloud_sync";
         const THEME_KEY = "sanegestao_theme";
@@ -1493,6 +1494,19 @@
             return new Date().toISOString();
         }
 
+        /** Compara se um instante ISO cai no dia de hoje (calendário local). */
+        function isLocalToday(iso) {
+            if (!iso) return false;
+            const a = new Date(iso);
+            if (!Number.isFinite(a.getTime())) return false;
+            const t = new Date();
+            return a.getFullYear() === t.getFullYear() && a.getMonth() === t.getMonth() && a.getDate() === t.getDate();
+        }
+
+        function normalizeOrderStatus(s) {
+            return String(s || "pending").trim().toLowerCase();
+        }
+
         function normalizeUserLoginKey(value) {
             return String(value || "").trim().toLowerCase();
         }
@@ -1503,7 +1517,18 @@
             return Number.isFinite(ts) ? ts : 0;
         }
 
-        function mergeCollection(localArr, remoteArr, keyField) {
+        function bumpItemRev(item) {
+            if (!item) return;
+            item.rev = Math.max(0, Number(item.rev || 0)) + 1;
+            item.updatedAt = nowIso();
+        }
+
+        /**
+         * Mescla entidades do Drive (remoto) com o aparelho (local) sem o bug do "=":
+         * com timestamp igual, o dado do celular NÃO pode sobrescrever a nuvem.
+         * Só o mais novo vence. Em empate, mantém a nuvem; para itens, usa o campo "rev".
+         */
+        function mergeLWWByUpdatedAt(localArr, remoteArr, keyField) {
             const map = new Map();
             (remoteArr || []).forEach((row) => {
                 if (row?.[keyField]) map.set(row[keyField], row);
@@ -1516,7 +1541,16 @@
                     return;
                 }
                 const current = map.get(key);
-                map.set(key, getRowTimestamp(row) >= getRowTimestamp(current) ? row : current);
+                const tL = getRowTimestamp(row);
+                const tR = getRowTimestamp(current);
+                if (tL > tR) {
+                    map.set(key, row);
+                    return;
+                }
+                if (tL < tR) return;
+                const revL = Number(row.rev || 0);
+                const revR = Number(current.rev || 0);
+                if (revL > revR) map.set(key, row);
             });
             return Array.from(map.values());
         }
@@ -1538,6 +1572,7 @@
                         return;
                     }
                     const current = map.get(key);
+                    // Permissão de usuário: empate mantém a edição local (igualdade aplica a última leitura).
                     map.set(key, getRowTimestamp(row) >= getRowTimestamp(current) ? row : current);
                 });
             };
@@ -1553,15 +1588,15 @@
                 settings: { ...remote.settings, ...local.settings },
                 unitCatalog: [...new Set([...(remote.unitCatalog || []), ...(local.unitCatalog || [])])],
                 users: mergeUserCollection(local.users, remote.users),
-                warehouses: mergeCollection(local.warehouses, remote.warehouses, "id"),
-                items: mergeCollection(local.items, remote.items, "id"),
-                orders: mergeCollection(local.orders, remote.orders, "id"),
-                logs: mergeCollection(local.logs, remote.logs, "id"),
-                replenishments: mergeCollection(local.replenishments, remote.replenishments, "id"),
-                suppliers: mergeCollection(local.suppliers, remote.suppliers, "id"),
-                chatMessages: mergeCollection(local.chatMessages || [], remote.chatMessages || [], "id"),
-                apiEmployees: mergeCollection(local.apiEmployees || [], remote.apiEmployees || [], "id"),
-                apiIssues: mergeCollection(local.apiIssues || [], remote.apiIssues || [], "id")
+                warehouses: mergeLWWByUpdatedAt(local.warehouses, remote.warehouses, "id"),
+                items: mergeLWWByUpdatedAt(local.items, remote.items, "id"),
+                orders: mergeLWWByUpdatedAt(local.orders, remote.orders, "id"),
+                logs: mergeLWWByUpdatedAt(local.logs, remote.logs, "id"),
+                replenishments: mergeLWWByUpdatedAt(local.replenishments, remote.replenishments, "id"),
+                suppliers: mergeLWWByUpdatedAt(local.suppliers, remote.suppliers, "id"),
+                chatMessages: mergeLWWByUpdatedAt(local.chatMessages || [], remote.chatMessages || [], "id"),
+                apiEmployees: mergeLWWByUpdatedAt(local.apiEmployees || [], remote.apiEmployees || [], "id"),
+                apiIssues: mergeLWWByUpdatedAt(local.apiIssues || [], remote.apiIssues || [], "id")
             });
         }
 
@@ -1684,13 +1719,16 @@
             state.items = state.items.map((i) => ({ ...i, area: i.area || "PROPRIO" }));
             state.items = state.items.map((i) => ({ ...i, code: i.code || "" }));
             state.items = state.items.map((i) => ({ ...i, expiryDate: i.expiryDate || null }));
+            state.items = state.items.map((i) => ({ ...i, rev: Math.max(0, Number(i.rev || 0)) }));
             state.orders = state.orders.map((o) => {
                 if (Array.isArray(o.lines)) {
                     return {
                         ...o,
+                        date: o.date || o.requestDate || nowIso(),
                         status: o.status || "pending",
                         requestDate: o.requestDate || o.date || nowIso(),
                         requesterSignature: o.requesterSignature || o.userName || "",
+                        deliveredAt: o.deliveredAt || null,
                         lines: o.lines.map((l) => ({
                             ...l,
                             qtyRequested: Number(l.qtyRequested || 1),
@@ -1709,6 +1747,7 @@
                     date: o.date || nowIso(),
                     requestDate: o.requestDate || o.date || nowIso(),
                     requesterSignature: o.requesterSignature || o.userName || "",
+                    deliveredAt: o.deliveredAt || null,
                     updatedAt: o.updatedAt || o.date || nowIso(),
                     lines: [{
                         lineId: uid("line"),
@@ -2380,6 +2419,7 @@
                     void vt.offsetWidth;
                     vt.classList.add("title-tick");
                 }
+                if (tab === "dash") this.updateStats();
                 if (tab === "admin-config") ui.applySettings();
                 if (tab === "admin-suppliers") this.renderSuppliers();
                 if (tab === "admin-wh") setTimeout(() => ui.initWarehouseMap(), 200);
@@ -2635,17 +2675,29 @@
                                 <input type="text" id="u-name" placeholder="Nome completo" required class="w-full p-3 border rounded-xl">
                                 <input type="text" id="u-user" placeholder="Usuário" required class="w-full p-3 border rounded-xl">
                                 <input type="password" id="u-pass" placeholder="Senha" required class="w-full p-3 border rounded-xl">
-                                <select id="u-role" class="w-full p-3 border rounded-xl">
+                                <select id="u-role" class="w-full p-3 border rounded-xl" onchange="logic.syncNewUserPermissionDefaults()">
                                     <option value="almoxarife">Almoxarife</option>
                                     <option value="usuario">Usuário (somente pedidos)</option>
                                     <option value="admin">Administrador</option>
                                 </select>
                                 <select id="u-wh" class="w-full p-3 border rounded-xl">${whOptions}</select>
+                                <div class="space-y-2 rounded-xl border border-slate-200 p-3 bg-slate-50/80">
+                                    <p class="text-xs font-bold text-slate-500 uppercase">Permissões extras</p>
+                                    <label class="flex items-start gap-2 text-sm cursor-pointer">
+                                        <input type="checkbox" id="u-can-ipi" class="mt-0.5">
+                                        <span><b>Controle de IPI</b> — pode solicitar/registrar IPI (EPI) no armazém, conforme a política do gestor.</span>
+                                    </label>
+                                    <label class="flex items-start gap-2 text-sm cursor-pointer">
+                                        <input type="checkbox" id="u-can-chat" class="mt-0.5" checked>
+                                        <span><b>Bate-papo da equipe</b> — exibe o botão de chat no canto da tela.</span>
+                                    </label>
+                                </div>
                                 <button type="submit" class="w-full bg-slate-800 text-white py-4 rounded-xl font-bold">CRIAR USUÁRIO</button>
                                 <button type="button" onclick="ui.closeModal()" class="w-full text-slate-400 py-2">Cancelar</button>
                             </form>
                         </div>
                     `;
+                    setTimeout(() => logic.syncNewUserPermissionDefaults(), 0);
                     return;
                 }
 
@@ -2768,7 +2820,7 @@
                                     <label class="text-xs font-bold text-slate-500 uppercase">Quantidade para o pedido</label>
                                     <input type="number" id="so-qty" min="1" max="${item.qty}" value="1" required class="w-full p-3 border rounded-xl mt-1">
                                 </div>
-                                <p class="text-xs text-slate-500">O item será adicionado ao carrinho da solicitação. Depois use <b>Finalizar solicitação</b> no topo.</p>
+                                <p class="text-xs text-slate-500 leading-relaxed">O item será adicionado ao <b>carrinho do pedido</b>. O saldo no estoque <b>só é baixado quando o almoxarife</b> marcar a solicitação como <b>entregue</b> (não nesta tela de inclusão). Depois use <b>Finalizar solicitação</b> no topo.</p>
                                 <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">Adicionar ao pedido</button>
                                 <button type="button" onclick="ui.closeModal()" class="w-full text-slate-400 py-2">Cancelar</button>
                             </form>
@@ -2806,6 +2858,10 @@
             },
             toggleTeamChatPanel() {
                 if (!auth.currentUser) return;
+                if (!canAccessTeamChat(auth.currentUser)) {
+                    alert("Bate-papo desativado para este perfil. Ative a permissão «Usar bate-papo da equipe» em Usuários → Permissões.");
+                    return;
+                }
                 const panel = document.getElementById("team-chat-panel");
                 if (!panel) return;
                 const willOpen = panel.classList.contains("hidden");
@@ -2822,9 +2878,12 @@
             renderTeamChat() {
                 const root = document.getElementById("team-chat-root");
                 const box = document.getElementById("team-chat-messages");
+                const form = document.getElementById("team-chat-form");
                 if (!root || !box) return;
-                const can = !!auth.currentUser;
+                const u = auth.currentUser;
+                const can = !!(u && canAccessTeamChat(u));
                 root.classList.toggle("hidden", !can);
+                if (form) form.classList.toggle("hidden", !can);
                 if (!can) return;
                 const list = [...(db.state.chatMessages || [])].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
                 const myKey = auth.normalizeUsername(auth.currentUser.user);
@@ -2952,8 +3011,16 @@
             updateStats() {
                 const items = this.userItemsScope();
                 const ordersScope = this.userOrdersScope();
-                const pendingOrders = ordersScope.filter((o) => o.status === "pending").length;
-                const deliveredToday = ordersScope.filter((o) => o.status === "delivered" && new Date(o.date).toDateString() === new Date().toDateString()).length;
+                const isOpenOrder = (o) => {
+                    const st = normalizeOrderStatus(o.status);
+                    return st === "pending" || st === "ready";
+                };
+                const pendingOrders = ordersScope.filter((o) => isOpenOrder(o)).length;
+                const deliveredToday = ordersScope.filter((o) => {
+                    if (normalizeOrderStatus(o.status) !== "delivered") return false;
+                    if (o.deliveredAt) return isLocalToday(o.deliveredAt);
+                    return isLocalToday(o.updatedAt);
+                }).length;
                 const lowItems = items.filter((i) => i.qty <= i.minQty);
                 const nowTs = Date.now();
                 const epiExpiryAlerts = items.filter((i) => {
@@ -3558,6 +3625,10 @@
             async sendTeamChatMessage(e) {
                 e.preventDefault();
                 if (!auth.currentUser) return;
+                if (!canAccessTeamChat(auth.currentUser)) {
+                    alert("Você não tem permissão para usar o bate-papo. Peça ao administrador para ativar em Usuários → Permissões.");
+                    return;
+                }
                 const input = document.getElementById("team-chat-input");
                 if (!input) return;
                 const text = String(input.value || "").trim();
@@ -3639,7 +3710,7 @@
                 item.qty = Number(item.qty || 0) + qty;
                 item.minQty = Math.floor(newMinQty);
                 if (item.category === "EPI" && expiryStr) item.expiryDate = new Date(`${expiryStr}T12:00:00`).toISOString();
-                item.updatedAt = nowIso();
+                bumpItemRev(item);
                 db.state.replenishments.push({
                     id: uid("rep"),
                     itemId: item.id,
@@ -3757,7 +3828,7 @@
                 if (qty > Number(stockItem.qty || 0)) return alert(`Saldo insuficiente no estoque do IPI (${stockItem.qty} ${stockItem.unit || "UN"}).`);
                 if (!Array.isArray(db.state.apiIssues)) db.state.apiIssues = [];
                 stockItem.qty = Number(stockItem.qty || 0) - qty;
-                stockItem.updatedAt = nowIso();
+                bumpItemRev(stockItem);
                 const record = {
                     id: uid("aprec"),
                     employeeId: employee.id,
@@ -4158,6 +4229,7 @@
                     qty: parseInt(document.getElementById("m-qty").value, 10),
                     minQty: parseInt(document.getElementById("m-min").value, 10),
                     expiryDate: category === "EPI" && expiryRaw ? new Date(`${expiryRaw}T12:00:00`).toISOString() : null,
+                    rev: 1,
                     updatedAt: nowIso()
                 };
                 if (!db.state.unitCatalog.includes(unit)) db.state.unitCatalog.push(unit);
@@ -4268,7 +4340,7 @@
                         already.unit = unit;
                         already.category = category;
                         already.area = area;
-                        already.updatedAt = nowIso();
+                        bumpItemRev(already);
                     } else {
                         db.state.items.push({
                             id: uid("it"),
@@ -4280,6 +4352,7 @@
                             unit,
                             qty,
                             minQty,
+                            rev: 1,
                             updatedAt: nowIso()
                         });
                     }
@@ -4307,7 +4380,7 @@
                 const minQty = Number(minStr);
                 if (!Number.isFinite(minQty) || minQty < 0) return alert("Informe um estoque mínimo válido (0 ou maior).");
                 item.minQty = Math.floor(minQty);
-                item.updatedAt = nowIso();
+                bumpItemRev(item);
                 db.addAuditLog("item_min_updated", { itemId: item.id, minQty: item.minQty, warehouseId: item.warehouseId });
                 await db.save();
                 ui.renderAll();
@@ -4343,6 +4416,19 @@
                 await db.save();
                 ui.renderAll();
             },
+            syncNewUserPermissionDefaults() {
+                const role = document.getElementById("u-role")?.value || "usuario";
+                const ipi = document.getElementById("u-can-ipi");
+                const chat = document.getElementById("u-can-chat");
+                if (!ipi || !chat) return;
+                if (role === "admin" || role === "almoxarife") {
+                    ipi.checked = true;
+                    chat.checked = true;
+                } else {
+                    ipi.checked = false;
+                    chat.checked = true;
+                }
+            },
             async addUser(e) {
                 e.preventDefault();
                 if (!this.must("canManageUsers", "Sem permissão para cadastrar usuários.")) return;
@@ -4350,13 +4436,18 @@
                 if (!user) return alert("Informe o nome de usuário (login).");
                 if (db.state.users.some((u) => u.user.toLowerCase() === user.toLowerCase())) return alert("Usuário já existe.");
                 const role = document.getElementById("u-role").value;
+                const basePerms = { ...defaultPermissions(role) };
+                const ckI = document.getElementById("u-can-ipi");
+                const ckC = document.getElementById("u-can-chat");
+                if (ckI) basePerms.canRequestIpi = !!ckI.checked;
+                if (ckC) basePerms.canUseChat = !!ckC.checked;
                 const newUser = {
                     name: document.getElementById("u-name").value.trim(),
                     user,
                     pass: document.getElementById("u-pass").value,
                     role,
                     warehouseId: document.getElementById("u-wh").value,
-                    permissions: defaultPermissions(role),
+                    permissions: basePerms,
                     updatedAt: nowIso()
                 };
                 db.state.users.push(newUser);
@@ -4536,6 +4627,7 @@
                     for (const line of lines) {
                         const item = db.state.items.find((i) => i.id === line.itemId);
                         item.qty -= line.qtyRequested;
+                        bumpItemRev(item);
                     }
                     db.addAuditLog("order_delivered", { orderId: id, lineCount: lines.length, warehouseId: order.warehouseId });
                 } else {
@@ -4543,6 +4635,7 @@
                 }
                 order.status = status;
                 order.updatedAt = nowIso();
+                if (status === "delivered") order.deliveredAt = nowIso();
                 await db.save();
                 ui.renderAll();
             },

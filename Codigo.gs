@@ -131,6 +131,7 @@ function normalizeState(raw) {
       qty: Number(i.qty || 0),
       minQty: Number(i.minQty || 0),
       expiryDate: i.expiryDate || null,
+      rev: Math.max(0, Number(i.rev || 0)),
       updatedAt: i.updatedAt || new Date().toISOString()
     };
   });
@@ -144,8 +145,10 @@ function normalizeState(raw) {
       requesterSignature: o.requesterSignature || "",
       warehouseId: o.warehouseId || "wh_1",
       status: o.status || "pending",
+      date: o.date || o.requestDate || new Date().toISOString(),
       requestDate: o.requestDate || o.date || new Date().toISOString(),
       updatedAt: o.updatedAt || o.date || new Date().toISOString(),
+      deliveredAt: o.deliveredAt || null,
       lines: lines.map(function (l) {
         return {
           lineId: l.lineId || makeId("line"),
