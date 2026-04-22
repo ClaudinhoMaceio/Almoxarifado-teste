@@ -1,17 +1,23 @@
-const ROOT_FOLDER_ID = "1dQ47OF8nmOMPnBGRE1IeTSZ-WR4lo-DG";
+const ROOT_FOLDER_ID = "1XrxLScRhIQ7iNciyWkoAHVaDFIhKYmUO";
 const MAIN_DB_FILENAME = "database.json";
 const DEFAULT_VERSION = 1;
 
 function getRootFolderId() {
   return typeof ROOT_FOLDER_ID !== "undefined" && ROOT_FOLDER_ID
     ? String(ROOT_FOLDER_ID)
-    : "1dQ47OF8nmOMPnBGRE1IeTSZ-WR4lo-DG";
+    : "1XrxLScRhIQ7iNciyWkoAHVaDFIhKYmUO";
 }
 
 function getMainDbFilename() {
   return typeof MAIN_DB_FILENAME !== "undefined" && MAIN_DB_FILENAME
     ? String(MAIN_DB_FILENAME)
     : "database.json";
+}
+
+function getDefaultVersion() {
+  return typeof DEFAULT_VERSION !== "undefined" && Number(DEFAULT_VERSION) > 0
+    ? Number(DEFAULT_VERSION)
+    : 1;
 }
 
 function doGet(e) {
@@ -22,10 +28,11 @@ function doGet(e) {
     if (action === "ping") return jsonOutput({ ok: true, serverTime: new Date().toISOString() });
     if (action === "pull") return jsonOutput(pullWarehouseData(warehouseId));
     if (action === "pullMainDatabase") return jsonOutput(pullMainDatabase());
+    if (action === "listWarehouses") return jsonOutput(listWarehousesFromFolder());
     if (action === "initWarehouse") return jsonOutput(initWarehouseOnce(warehouseId, warehouseId));
     if (action === "initMainDatabase") return jsonOutput(initMainDatabase(getMainDbFilename()));
 
-    return jsonOutput({ ok: false, error: "Ação GET inválida." });
+    return jsonOutput({ ok: false, error: "Acao GET invalida." });
   } catch (error) {
     return jsonOutput({ ok: false, error: String(error && error.message ? error.message : error) });
   }
@@ -49,7 +56,7 @@ function doPost(e) {
       return jsonOutput(pushMainDatabase(payload.fileName || getMainDbFilename(), payload.data));
     }
 
-    return jsonOutput({ ok: false, error: "Ação POST inválida." });
+    return jsonOutput({ ok: false, error: "Acao POST invalida." });
   } catch (error) {
     return jsonOutput({ ok: false, error: String(error && error.message ? error.message : error) });
   }
@@ -78,7 +85,7 @@ function ensureRootFolder() {
 
 function defaultState() {
   return {
-    version: DEFAULT_VERSION,
+    version: getDefaultVersion(),
     settings: { systemName: "SANEGESTAO", primaryColor: "#0284c7", reportLogoDataUrl: "" },
     users: [],
     warehouses: [],
@@ -88,6 +95,8 @@ function defaultState() {
     replenishments: [],
     suppliers: [],
     chatMessages: [],
+    apiEmployees: [],
+    apiIssues: [],
     unitCatalog: ["UN", "M", "KG", "L", "CX", "PCT", "JG", "ROL", "M2", "M3"],
     updatedAt: new Date().toISOString()
   };
@@ -95,7 +104,7 @@ function defaultState() {
 
 function normalizeState(raw) {
   const state = raw || {};
-  state.version = Number(state.version || DEFAULT_VERSION);
+  state.version = Number(state.version || getDefaultVersion());
   state.settings = state.settings || { systemName: "SANEGESTAO", primaryColor: "#0284c7", reportLogoDataUrl: "" };
   if (typeof state.settings.reportLogoDataUrl !== "string") state.settings.reportLogoDataUrl = "";
   state.users = Array.isArray(state.users) ? state.users : [];
@@ -106,6 +115,8 @@ function normalizeState(raw) {
   state.replenishments = Array.isArray(state.replenishments) ? state.replenishments : [];
   state.suppliers = Array.isArray(state.suppliers) ? state.suppliers : [];
   state.chatMessages = Array.isArray(state.chatMessages) ? state.chatMessages : [];
+  state.apiEmployees = Array.isArray(state.apiEmployees) ? state.apiEmployees : [];
+  state.apiIssues = Array.isArray(state.apiIssues) ? state.apiIssues : [];
   state.unitCatalog = Array.isArray(state.unitCatalog) ? state.unitCatalog : [];
 
   state.items = state.items.map(function (i) {
@@ -119,6 +130,7 @@ function normalizeState(raw) {
       warehouseId: i.warehouseId || "wh_1",
       qty: Number(i.qty || 0),
       minQty: Number(i.minQty || 0),
+      expiryDate: i.expiryDate || null,
       updatedAt: i.updatedAt || new Date().toISOString()
     };
   });
@@ -158,6 +170,7 @@ function normalizeState(raw) {
       unit: r.unit || "UN",
       date: r.date || new Date().toISOString(),
       supplierId: r.supplierId || "",
+      expiryDate: r.expiryDate || null,
       user: r.user || "sistema",
       userName: r.userName || "Sistema",
       updatedAt: r.updatedAt || new Date().toISOString()
@@ -178,23 +191,57 @@ function normalizeState(raw) {
   });
 
   state.chatMessages = state.chatMessages.map(function (m) {
-    var text = String(m.text || "").slice(0, 2000);
+    const text = String(m.text || "").slice(0, 2000);
     return {
       id: m.id || makeId("chat"),
       user: String(m.user || "").trim(),
-      userName: String(m.userName || "Usuário").trim(),
+      userName: String(m.userName || "Usuario").trim(),
       role: m.role || "usuario",
       text: text,
       createdAt: m.createdAt || new Date().toISOString(),
       updatedAt: m.updatedAt || m.createdAt || new Date().toISOString()
     };
   });
+
+  state.apiEmployees = state.apiEmployees.map(function (e) {
+    return {
+      id: e.id || makeId("apemp"),
+      name: String(e.name || "Funcionario").trim(),
+      document: String(e.document || "").trim(),
+      roleName: String(e.roleName || "").trim(),
+      warehouseId: String(e.warehouseId || "all"),
+      active: e.active !== false,
+      createdAt: e.createdAt || new Date().toISOString(),
+      updatedAt: e.updatedAt || e.createdAt || new Date().toISOString()
+    };
+  });
+
+  state.apiIssues = state.apiIssues.map(function (r) {
+    return {
+      id: r.id || makeId("aprec"),
+      employeeId: String(r.employeeId || "").trim(),
+      employeeName: String(r.employeeName || "").trim(),
+      warehouseId: String(r.warehouseId || "all"),
+      apiName: String(r.apiName || "IPI").trim(),
+      itemId: String(r.itemId || "").trim(),
+      qty: Math.max(1, Number(r.qty || 1)),
+      issueDate: r.issueDate || new Date().toISOString(),
+      notes: String(r.notes || "").trim(),
+      user: String(r.user || "").trim(),
+      userName: String(r.userName || "").trim(),
+      createdAt: r.createdAt || new Date().toISOString(),
+      updatedAt: r.updatedAt || r.createdAt || new Date().toISOString()
+    };
+  });
+
   state.chatMessages.sort(function (a, b) {
     return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
   });
-  if (state.chatMessages.length > 500) {
-    state.chatMessages = state.chatMessages.slice(state.chatMessages.length - 500);
-  }
+  if (state.chatMessages.length > 500) state.chatMessages = state.chatMessages.slice(state.chatMessages.length - 500);
+
+  state.apiIssues.sort(function (a, b) {
+    return new Date(b.issueDate).getTime() - new Date(a.issueDate).getTime();
+  });
 
   state.unitCatalog = uniqueUpper(state.unitCatalog.concat(state.items.map(function (i) { return i.unit; })));
   state.updatedAt = new Date().toISOString();
@@ -259,6 +306,32 @@ function pullMainDatabase() {
   return { ok: true, data: normalizeState(parsed), created: resolved.created };
 }
 
+function listWarehousesFromFolder() {
+  const folder = ensureRootFolder();
+  const files = folder.getFiles();
+  const out = [];
+  const mainName = getMainDbFilename().toLowerCase();
+  while (files.hasNext()) {
+    const file = files.next();
+    const name = String(file.getName() || "");
+    const lower = name.toLowerCase();
+    if (!lower.endsWith(".json")) continue;
+    if (lower === mainName) continue;
+    const warehouseId = name.replace(/\.json$/i, "");
+    if (!warehouseId) continue;
+    out.push({
+      id: warehouseId,
+      fileName: name,
+      fileId: file.getId(),
+      updatedAt: file.getLastUpdated().toISOString()
+    });
+  }
+  out.sort(function (a, b) {
+    return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+  });
+  return { ok: true, warehouses: out };
+}
+
 function pushMainDatabase(fileName, data) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
@@ -277,6 +350,18 @@ function getWarehouseFileName(warehouseId) {
   return String(warehouseId || "wh_1") + ".json";
 }
 
+function ensureWarehouseState(state, warehouseId, warehouseName) {
+  const normalized = normalizeState(state || defaultState());
+  const id = String(warehouseId || "wh_1");
+  const name = String(warehouseName || id);
+  const existing = normalized.warehouses.find(function (w) {
+    return String(w.id || "") === id;
+  });
+  if (!existing) normalized.warehouses.unshift({ id: id, name: name, city: "", phone: "", notes: "", lat: null, lng: null });
+  if (existing && !existing.name) existing.name = name;
+  return normalized;
+}
+
 function initWarehouseOnce(warehouseId, warehouseName) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
@@ -284,9 +369,10 @@ function initWarehouseOnce(warehouseId, warehouseName) {
     const folder = ensureRootFolder();
     const id = String(warehouseId || "wh_1");
     const fileName = getWarehouseFileName(id);
-    const initial = defaultState();
-    initial.warehouses = [{ id: id, name: String(warehouseName || id), city: "", phone: "", notes: "", lat: null, lng: null }];
+    const initial = ensureWarehouseState(defaultState(), id, warehouseName);
     const result = getOrCreateFile(folder, fileName, initial);
+    const current = ensureWarehouseState(readJsonFile(result.file), id, warehouseName);
+    writeJsonFile(result.file, current);
     return { ok: true, warehouseId: id, created: result.created, fileId: result.file.getId(), fileName: fileName };
   } finally {
     lock.releaseLock();
@@ -296,8 +382,9 @@ function initWarehouseOnce(warehouseId, warehouseName) {
 function pullWarehouseData(warehouseId) {
   const folder = ensureRootFolder();
   const id = String(warehouseId || "wh_1");
-  const result = getOrCreateFile(folder, getWarehouseFileName(id), defaultState());
-  const state = normalizeState(readJsonFile(result.file));
+  const result = getOrCreateFile(folder, getWarehouseFileName(id), ensureWarehouseState(defaultState(), id, id));
+  const state = ensureWarehouseState(readJsonFile(result.file), id, id);
+  if (result.created) writeJsonFile(result.file, state);
   return { ok: true, warehouseId: id, data: state, created: result.created };
 }
 
@@ -307,8 +394,9 @@ function pushWarehouseData(warehouseId, data) {
   try {
     const folder = ensureRootFolder();
     const id = String(warehouseId || "wh_1");
-    const result = getOrCreateFile(folder, getWarehouseFileName(id), defaultState());
-    writeJsonFile(result.file, data || defaultState());
+    const result = getOrCreateFile(folder, getWarehouseFileName(id), ensureWarehouseState(defaultState(), id, id));
+    const next = ensureWarehouseState(data || defaultState(), id, id);
+    writeJsonFile(result.file, next);
     return { ok: true, warehouseId: id, fileId: result.file.getId() };
   } finally {
     lock.releaseLock();
@@ -319,10 +407,6 @@ function makeId(prefix) {
   return String(prefix || "id") + "_" + Utilities.getUuid().replace(/-/g, "").slice(0, 10);
 }
 
-/**
- * Execução manual no editor do Apps Script para criar o database.json na pasta.
- * Use esta função quando quiser forçar a criação sem passar pelo frontend.
- */
 function criarDatabaseJsonAgora() {
   const result = initMainDatabase(getMainDbFilename());
   const folder = ensureRootFolder();
