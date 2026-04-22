@@ -1204,6 +1204,7 @@
         const REMOTE_DATA_FOLDER_URL = "https://drive.google.com/drive/folders/1XrxLScRhIQ7iNciyWkoAHVaDFIhKYmUO?usp=drive_link";
         const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwuwjzjRZ_1GFhg1byZZOxpcQ-eAy1takbdHLJtgWCjZDLU1P-d3QlglifcIVVHP7jHRA/exec";
         const STORAGE_KEY = "sanegestao_db";
+        const PENDING_SYNC_KEY = "sanegestao_pending_cloud_sync";
         const THEME_KEY = "sanegestao_theme";
         const SESSION_KEY = "session_user";
         const IS_FILE_PROTOCOL = window.location.protocol === "file:";
@@ -1231,6 +1232,15 @@
         function clearSessionUser() {
             sessionStorage.removeItem(SESSION_KEY);
             localStorage.removeItem(SESSION_KEY);
+        }
+
+        function readPendingSyncFlag() {
+            return localStorage.getItem(PENDING_SYNC_KEY) === "1";
+        }
+
+        function setPendingSyncFlag(value) {
+            if (value) localStorage.setItem(PENDING_SYNC_KEY, "1");
+            else localStorage.removeItem(PENDING_SYNC_KEY);
         }
 
         function enableManifestWhenAllowed() {
@@ -1383,6 +1393,7 @@
             "canManageWarehouses",
             "canManageSettings",
             "canRequestItems",
+            "canRequestIpi",
             "canViewDashboard",
             "canUseChat"
         ];
@@ -1418,6 +1429,7 @@
                 canManageWarehouses: "Gerenciar armazéns",
                 canManageSettings: "Gerenciar configurações",
                 canRequestItems: "Solicitar materiais",
+                canRequestIpi: "Solicitar IPI adicional",
                 canViewDashboard: "Visualizar painel",
                 canUseChat: "Usar bate-papo da equipe",
                 viewStock_code: "Mostrar coluna Código",
@@ -1580,6 +1592,7 @@
                     canManageWarehouses: true,
                     canManageSettings: true,
                     canRequestItems: true,
+                    canRequestIpi: true,
                     canViewDashboard: true,
                     canUseChat: true,
                     ...cols
@@ -1594,6 +1607,7 @@
                     canManageWarehouses: false,
                     canManageSettings: false,
                     canRequestItems: true,
+                    canRequestIpi: true,
                     canViewDashboard: true,
                     canUseChat: true,
                     ...cols
@@ -1607,6 +1621,7 @@
                 canManageWarehouses: false,
                 canManageSettings: false,
                 canRequestItems: true,
+                canRequestIpi: false,
                 canViewDashboard: false,
                 canUseChat: false,
                 ...cols
@@ -1830,7 +1845,7 @@
                     throw new Error("Resposta inválida do Web App (não é JSON).");
                 }
             },
-            withTimeout(promise, timeoutMs = 15000) {
+            withTimeout(promise, timeoutMs = 8000) {
                 return Promise.race([
                     promise,
                     new Promise((_, reject) => setTimeout(() => reject(new Error("Tempo limite de conexão com o aplicativo web")), timeoutMs))
@@ -1846,7 +1861,7 @@
                         return await requestFn();
                     } catch (err) {
                         lastError = err;
-                        if (i < attempts - 1) await this.sleep(600 * (i + 1));
+                        if (i < attempts - 1) await this.sleep(250 * (i + 1));
                     }
                 }
                 throw lastError || new Error("Falha ao comunicar com aplicativo web.");
@@ -2077,14 +2092,19 @@
                 unitCatalog: defaultUnitCatalog()
             }),
             isSyncing: false,
-            hasPendingCloudSync: false,
+            hasPendingCloudSync: readPendingSyncFlag(),
+            syncQueued: false,
             async save() {
                 this.state = normalizeState(this.state);
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
                 ui.setLastSync("local");
                 this.hasPendingCloudSync = true;
+                setPendingSyncFlag(true);
                 if (!remoteSync.isConfigured() || !navigator.onLine) return;
-                if (this.isSyncing) return;
+                if (this.isSyncing) {
+                    this.syncQueued = true;
+                    return;
+                }
                 this.isSyncing = true;
                 try {
                     if (!remoteSync.isReady) await remoteSync.init();
@@ -2096,9 +2116,14 @@
                     if (remoteSync.isReady && pushed) {
                         ui.setLastSync("remote");
                         this.hasPendingCloudSync = false;
+                        setPendingSyncFlag(false);
                     }
                 } finally {
                     this.isSyncing = false;
+                    if (this.syncQueued && navigator.onLine && remoteSync.isConfigured()) {
+                        this.syncQueued = false;
+                        setTimeout(() => this.refreshFromCloud(), 120);
+                    }
                 }
             },
             async load() {
@@ -2115,12 +2140,23 @@
                     this.state = mergeStatesPreferLatest(this.state, normalizeState(remoteSnapshot));
                     localStorage.setItem(STORAGE_KEY, JSON.stringify(this.state));
                     ui.setLastSync("remote");
-                    this.hasPendingCloudSync = false;
+                    // Se houver alterações feitas offline, envia após mesclar.
+                    if (remoteSync.isReady && this.hasPendingCloudSync) {
+                        const pushed = await remoteSync.pushAll(this.state);
+                        if (pushed) {
+                            this.hasPendingCloudSync = false;
+                            setPendingSyncFlag(false);
+                            ui.setLastSync("remote");
+                        }
+                    }
                 }
             },
             async refreshFromCloud() {
                 if (!remoteSync.isConfigured() || !navigator.onLine) return;
-                if (this.isSyncing) return;
+                if (this.isSyncing) {
+                    this.syncQueued = true;
+                    return;
+                }
                 this.isSyncing = true;
                 try {
                     if (!remoteSync.isReady) await remoteSync.init();
@@ -2135,6 +2171,7 @@
                         const pushed = await remoteSync.pushAll(this.state);
                         if (pushed) {
                             this.hasPendingCloudSync = false;
+                            setPendingSyncFlag(false);
                             ui.setLastSync("remote");
                             ui.updateCloudStatus("remote");
                         }
@@ -2146,6 +2183,10 @@
                     }
                 } finally {
                     this.isSyncing = false;
+                    if (this.syncQueued && navigator.onLine && remoteSync.isConfigured()) {
+                        this.syncQueued = false;
+                        setTimeout(() => this.refreshFromCloud(), 120);
+                    }
                 }
             },
             addAuditLog(action, details = {}) {
@@ -2609,7 +2650,9 @@
                 }
 
                 if (type === "edit-user") {
-                    if (!auth.hasPermission("canManageUsers")) return alert("Você não tem permissão para gerenciar usuários.");
+                    const canManageUsers = auth.hasPermission("canManageUsers");
+                    const canGrantIpi = ["admin", "almoxarife"].includes(normalizeRoleValue(auth.currentUser?.role));
+                    if (!canManageUsers && !canGrantIpi) return alert("Você não tem permissão para gerenciar usuários.");
                     const user = db.state.users.find((u) => u.user === normalizeUserLoginKey(payload));
                     if (!user) return;
                     const p = { ...defaultPermissions(user.role), ...user.permissions };
@@ -2624,12 +2667,12 @@
                             <p class="text-xs text-slate-400 mb-2">Usuário: ${user.user}</p>
                             <p class="text-xs text-slate-500 mb-6 leading-relaxed">O <b>bate-papo da equipe</b> aparece no canto inferior direito após o login. Desmarque para impedir o acesso (útil para usuários que só solicitam material). O perfil <b>administrador</b> continua podendo abrir o bate-papo independentemente desta opção.</p>
                             <form onsubmit="logic.updateUserPermissions(event, '${user.user}')" class="space-y-3">
-                                ${CORE_PERMISSION_KEYS.map((perm) => permCheckbox(perm)).join("")}
-                                <div class="pt-4 mt-2 border-t border-slate-200">
+                                ${(canManageUsers ? CORE_PERMISSION_KEYS : ["canRequestIpi"]).map((perm) => permCheckbox(perm)).join("")}
+                                ${canManageUsers ? `<div class="pt-4 mt-2 border-t border-slate-200">
                                     <p class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Meu estoque — colunas visíveis</p>
                                     <p class="text-[11px] text-slate-400 mb-3">Desmarque para ocultar na tabela: Código, Item, Categoria, Área, Qtd, Mínimo, Status, Entrada, Saída.</p>
                                     ${STOCK_TABLE_COLUMN_KEYS.map((perm) => permCheckbox(perm)).join("")}
-                                </div>
+                                </div>` : `<p class="text-xs text-slate-500">Almoxarife pode alterar somente a permissão "Solicitar IPI adicional".</p>`}
                                 <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">Salvar Permissões</button>
                                 <button type="button" onclick="ui.closeModal()" class="w-full text-slate-400 py-2">Cancelar</button>
                             </form>
@@ -3245,6 +3288,7 @@
                 if (!user) return;
                 const canGlobal = user.role === "admin" || user.warehouseId === "all";
                 const canManageApi = auth.hasPermission("canManageStock");
+                const canIssueIpi = canManageApi || auth.hasPermission("canRequestIpi");
                 const myWarehouse = user.warehouseId;
 
                 const whOptions = db.state.warehouses
@@ -3264,7 +3308,7 @@
                 }).join("");
 
                 issueEmployee.innerHTML = `<option value="">Selecione o funcionário</option>${employeeOptions}`;
-                issueEmployee.disabled = !canManageApi;
+                issueEmployee.disabled = !canIssueIpi;
                 const epiOptions = (db.state.items || [])
                     .filter((i) => i.category === "EPI")
                     .filter((i) => canGlobal || i.warehouseId === myWarehouse)
@@ -3274,7 +3318,7 @@
                         return `<option value="${i.id}">${i.name} - saldo ${Number(i.qty || 0)} ${i.unit || "UN"} (${whName})</option>`;
                     }).join("");
                 issueItem.innerHTML = `<option value="">Selecione o IPI no estoque</option>${epiOptions}`;
-                issueItem.disabled = !canManageApi;
+                issueItem.disabled = !canIssueIpi;
                 reportEmployee.innerHTML = `<option value="">Todos os funcionários</option>${employeeOptions}`;
                 if (prevIssueEmployee && employees.some((e) => e.id === prevIssueEmployee)) issueEmployee.value = prevIssueEmployee;
                 if (prevIssueItem && (db.state.items || []).some((i) => i.id === prevIssueItem)) issueItem.value = prevIssueItem;
@@ -3306,11 +3350,12 @@
                 const empForm = document.getElementById("api-employee-form");
                 const issueForm = document.getElementById("api-issue-form");
                 if (empForm) empForm.classList.toggle("opacity-60", !canManageApi);
-                if (issueForm) issueForm.classList.toggle("opacity-60", !canManageApi);
+                if (issueForm) issueForm.classList.toggle("opacity-60", !canIssueIpi);
             },
             renderAdminUsers() {
                 const tbody = document.getElementById("table-users");
                 const canManageUsers = auth.hasPermission("canManageUsers");
+                const canGrantIpi = ["admin", "almoxarife"].includes(normalizeRoleValue(auth.currentUser?.role));
                 tbody.innerHTML = db.state.users.map((u) => {
                     const wh = u.warehouseId === "all"
                         ? "Todos"
@@ -3322,8 +3367,8 @@
                             <td class="px-6 py-4 uppercase text-xs">${formatRolePt(u.role)}</td>
                             <td class="px-6 py-4">${wh}</td>
                             <td class="px-6 py-4 text-right">
-                                ${canManageUsers ? `<button onclick="ui.openModal('edit-user', '${u.user}')" class="bg-slate-100 px-3 py-1 rounded-lg text-xs font-bold">Permissões</button>
-                                <button onclick="logic.deleteUser('${u.user}')" class="bg-red-100 text-red-600 px-3 py-1 rounded-lg text-xs font-bold ml-2">Excluir</button>` : '<span class="text-xs text-slate-400">Sem permissão</span>'}
+                                ${(canManageUsers || canGrantIpi) ? `<button onclick="ui.openModal('edit-user', '${u.user}')" class="bg-slate-100 px-3 py-1 rounded-lg text-xs font-bold">Permissões</button>` : '<span class="text-xs text-slate-400">Sem permissão</span>'}
+                                ${canManageUsers ? `<button onclick="logic.deleteUser('${u.user}')" class="bg-red-100 text-red-600 px-3 py-1 rounded-lg text-xs font-bold ml-2">Excluir</button>` : ""}
                             </td>
                         </tr>
                     `;
@@ -3694,7 +3739,9 @@
             },
             async addApiIssue(e) {
                 e.preventDefault();
-                if (!this.must("canManageStock", "Sem permissão para registrar entrega de IPI.")) return;
+                if (!(auth.hasPermission("canManageStock") || auth.hasPermission("canRequestIpi"))) {
+                    return alert("Sem permissão para solicitar/registrar IPI.");
+                }
                 const employeeId = String(document.getElementById("api-issue-employee")?.value || "");
                 const itemId = String(document.getElementById("api-issue-item-id")?.value || "");
                 const qty = Math.max(1, Number(document.getElementById("api-issue-qty")?.value || 1));
@@ -4320,12 +4367,15 @@
             },
             async updateUserPermissions(e, username) {
                 e.preventDefault();
-                if (!this.must("canManageUsers", "Sem permissão para alterar permissões.")) return;
+                const canManageUsers = auth.hasPermission("canManageUsers");
+                const canGrantIpi = ["admin", "almoxarife"].includes(normalizeRoleValue(auth.currentUser?.role));
+                if (!canManageUsers && !canGrantIpi) return alert("Sem permissão para alterar permissões.");
                 const key = normalizeUserLoginKey(username);
                 const user = db.state.users.find((u) => u.user === key);
                 if (!user) return;
                 const perms = { ...defaultPermissions(user.role), ...user.permissions };
-                ALL_USER_PERMISSION_FORM_KEYS.forEach((perm) => {
+                const editableKeys = canManageUsers ? ALL_USER_PERMISSION_FORM_KEYS : ["canRequestIpi"];
+                editableKeys.forEach((perm) => {
                     const el = document.getElementById(`perm-${perm}`);
                     if (el) perms[perm] = el.checked;
                 });
@@ -4413,6 +4463,8 @@
                         });
                     });
                     await db.save();
+                    // Reforça propagação imediata do pedido para outros perfis/dispositivos.
+                    if (navigator.onLine) await db.refreshFromCloud();
                     this.clearRequestCart();
                     ui.closeModal();
                     ui.renderAll();
@@ -4595,7 +4647,7 @@
             syncTimerId = setInterval(() => {
                 if (!auth.currentUser || !navigator.onLine) return;
                 db.refreshFromCloud();
-            }, 3000);
+            }, 1200);
         }
 
         window.onload = async () => {
