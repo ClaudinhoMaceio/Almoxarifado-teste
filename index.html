@@ -759,34 +759,34 @@
             background: rgba(30, 41, 59, 0.95) !important;
             border-color: #475569 !important;
         }
+        #team-chat-root {
+            z-index: 9999 !important;
+        }
+        #team-chat-fab {
+            background: linear-gradient(135deg, #4f46e5 0%, #0ea5e9 100%);
+            box-shadow: 0 12px 32px -8px rgba(14, 165, 233, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.12) inset;
+        }
+        #team-chat-fab:hover {
+            filter: brightness(1.05);
+        }
+        #team-chat-header-bar {
+            background: linear-gradient(120deg, #4f46e5 0%, #0ea5e9 100%);
+        }
+        #team-chat-messages {
+            background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+        }
         html.theme-dark #team-chat-panel {
-            background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%) !important;
+            background: #0f172a !important;
             border-color: #334155 !important;
             color: #e2e8f0 !important;
         }
-        html.theme-dark #team-chat-panel .text-slate-800 {
-            color: #f1f5f9 !important;
-        }
-        html.theme-dark #team-chat-panel .bg-slate-50 {
-            background: #1e293b !important;
-        }
         html.theme-dark #team-chat-messages {
-            background: #0f172a !important;
+            background: #0b1220 !important;
         }
-        html.theme-dark #team-chat-messages .bg-white.border-slate-200 {
+        html.theme-dark .team-chat-bubble-in {
             background: #1e293b !important;
             color: #e2e8f0 !important;
             border-color: #475569 !important;
-        }
-        html.theme-dark #team-chat-messages .text-emerald-700 {
-            color: #34d399 !important;
-        }
-        html.theme-dark #team-chat-panel .border-slate-200 {
-            border-color: #334155 !important;
-        }
-        html.theme-dark #team-chat-panel .text-slate-500,
-        html.theme-dark #team-chat-panel .text-slate-600 {
-            color: #94a3b8 !important;
         }
         html.theme-dark #team-chat-form.team-chat-footer {
             background: #0f172a !important;
@@ -1173,23 +1173,26 @@
         </main>
     </div>
 
-    <div id="team-chat-root" class="hidden fixed bottom-5 right-5 z-[120] flex flex-col items-end gap-3 max-w-[calc(100vw-1.5rem)] pointer-events-auto">
-        <div id="team-chat-panel" class="hidden flex flex-col w-[min(100vw-2rem,380px)] h-[min(72vh,520px)] rounded-2xl shadow-2xl border border-slate-200 bg-white overflow-hidden origin-bottom-right animate-fade">
-            <div class="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200 bg-slate-50">
-                <div>
-                    <p class="text-sm font-bold text-slate-800">Equipe</p>
-                    <p class="text-[10px] text-slate-500">Bate-papo interno · sincroniza na nuvem</p>
+    <div id="team-chat-root" class="hidden fixed right-4 bottom-4 md:right-6 md:bottom-6 flex flex-col items-end gap-3 w-[min(100vw-1.5rem,400px)] max-w-[100vw-1rem] pointer-events-auto" style="z-index:9999" title="Bate-papo (lado oposto à barra de menu)">
+        <div id="team-chat-panel" class="hidden flex flex-col w-full h-[min(70vh,500px)] rounded-3xl shadow-2xl border border-slate-200/80 bg-white overflow-hidden origin-bottom-right ring-1 ring-slate-900/5">
+            <div id="team-chat-header-bar" class="flex items-center justify-between gap-2 px-4 py-3.5 text-white">
+                <div class="min-w-0">
+                    <p class="text-sm font-black tracking-tight">Mensagens da equipe</p>
+                    <p class="text-[11px] text-white/85 font-medium">Solicitantes, almoxarifes e admin · nuvem</p>
                 </div>
-                <button type="button" id="team-chat-close" class="p-2 rounded-xl text-slate-500 hover:bg-slate-200/80 text-lg leading-none" title="Fechar" aria-label="Fechar bate-papo">×</button>
+                <button type="button" id="team-chat-close" class="shrink-0 p-2 rounded-xl text-white/90 hover:bg-white/15 text-xl leading-none" title="Fechar" aria-label="Fechar bate-papo">×</button>
             </div>
-            <div id="team-chat-messages" class="flex-1 overflow-y-auto p-3 space-y-2 bg-slate-50"></div>
-            <form id="team-chat-form" class="team-chat-footer flex gap-2 p-3 border-t border-slate-200 bg-slate-50">
-                <input type="text" id="team-chat-input" maxlength="2000" autocomplete="off" placeholder="Escreva uma mensagem…" class="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/40">
-                <button type="submit" class="shrink-0 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-700">Enviar</button>
+            <div id="team-chat-messages" class="flex-1 min-h-0 overflow-y-auto p-3 space-y-2.5"></div>
+            <form id="team-chat-form" class="team-chat-footer flex gap-2 p-3 border-t border-slate-200 bg-white">
+                <input type="text" id="team-chat-input" maxlength="2000" autocomplete="off" placeholder="Mensagem para a equipe…" class="flex-1 min-w-0 px-3 py-2.5 rounded-2xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500/40">
+                <button type="submit" class="shrink-0 px-4 py-2.5 rounded-2xl bg-gradient-to-br from-indigo-600 to-sky-600 text-white text-sm font-bold shadow-md hover:brightness-110">Enviar</button>
             </form>
         </div>
-        <button type="button" id="team-chat-fab" class="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg shadow-emerald-900/25 ring-2 ring-white hover:bg-emerald-600 transition-transform hover:scale-105 active:scale-95" title="Abrir bate-papo da equipe" aria-label="Bate-papo da equipe">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+        <button type="button" id="team-chat-fab" class="group relative flex h-[60px] w-[60px] items-center justify-center rounded-full text-white transition-transform hover:scale-105 active:scale-95" title="Abrir mensagens (equipe e almoxarifado)" aria-label="Abrir bate-papo da equipe">
+            <span class="absolute inset-0 rounded-full bg-sky-400/30 blur-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" aria-hidden="true"></span>
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 relative z-[1] drop-shadow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 19c-1.09-.89-1.4-1.5-1.4-2.5A7 7 0 105 11.1c0 1.05.3 1.64 1.4 2.5L3 20l3.35-1.64c.5.1 1.01.16 1.65.16z"/>
+            </svg>
         </button>
     </div>
 
@@ -1203,7 +1206,7 @@
     <script>
         const APP_DB_PATH = "almoxarifado/database.json";
         const REMOTE_DATA_FOLDER_URL = "https://drive.google.com/drive/folders/1XrxLScRhIQ7iNciyWkoAHVaDFIhKYmUO?usp=drive_link";
-        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzio0B4jmWxB4XX0n5p2YQ5HmG8vecIjjtuUffG4UQZGMapJNz_pefmv6W5qWJSy_pu/exec";
+        const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyquK4NHJqG8ZimtIJq8nR7BElrBB-7HtQqjRwOwY0ty3yZew0Nn5F6Kdka-q_ShRw/exec";
         const STORAGE_KEY = "sanegestao_db";
         const PENDING_SYNC_KEY = "sanegestao_pending_cloud_sync";
         const THEME_KEY = "sanegestao_theme";
@@ -1513,6 +1516,21 @@
             return String(value || "").trim().toLowerCase();
         }
 
+        /** Nome do armazém para exibição: mostra o nome cadastrado, nunca o código interno (id). */
+        function warehouseDisplayName(warehouseId) {
+            if (warehouseId === "all" || warehouseId === undefined || warehouseId === null) return "Todos";
+            const id = String(warehouseId).trim();
+            if (!id) return "—";
+            if (typeof db !== "undefined" && db && Array.isArray(db.state?.warehouses)) {
+                const w = db.state.warehouses.find((x) => x.id === id);
+                if (w) {
+                    const n = String(w.name || "").trim();
+                    return n || "Armazém";
+                }
+            }
+            return "Armazém (cadastro não localizado)";
+        }
+
         function getRowTimestamp(row) {
             const raw = row?.updatedAt || row?.date || row?.createdAt || 0;
             const ts = new Date(raw).getTime();
@@ -1604,8 +1622,8 @@
 
         function normalizeRoleValue(role) {
             const value = String(role || "").trim().toLowerCase();
-            if (["admin", "administrador", "administrator"].includes(value)) return "admin";
-            if (["almoxarife", "almoxarifado", "almox"].includes(value)) return "almoxarife";
+            if (["admin", "administrador", "administrator", "adm", "gestor", "diretoria", "master", "root"].includes(value)) return "admin";
+            if (["almoxarife", "almoxarif", "almoxarifado", "almox", "moxarife"].includes(value)) return "almoxarife";
             return "usuario";
         }
 
@@ -1700,11 +1718,15 @@
 
             state.users = state.users.map((u) => {
                 const normalizedRole = normalizeRoleValue(u.role);
+                const perms = { ...defaultPermissions(normalizedRole), ...(u.permissions || {}) };
+                if (normalizedRole === "admin" || normalizedRole === "almoxarife") {
+                    perms.canUseChat = true;
+                }
                 return {
                     ...u,
                     user: normalizeUserLoginKey(u.user),
                     role: normalizedRole,
-                    permissions: { ...defaultPermissions(normalizedRole), ...(u.permissions || {}) }
+                    permissions: perms
                 };
             });
             state.warehouses = state.warehouses.map((w) => {
@@ -2227,8 +2249,9 @@
                         const modalOpen = modal && !modal.classList.contains("hidden");
                         if (modalOpen) {
                             ui.updateStats();
+                            if (typeof logic.refreshReportDataOnly === "function") logic.refreshReportDataOnly();
                         } else {
-                            ui.renderAll();
+                            ui.applySyncRefresh();
                         }
                     }
                 } finally {
@@ -2431,6 +2454,11 @@
                     vt.classList.add("title-tick");
                 }
                 if (tab === "dash") this.updateStats();
+                if (tab === "stock") this.renderStock();
+                if (tab === "global") this.renderGlobalSearch();
+                if (tab === "reports" && auth.hasPermission("canManageOrders") && typeof logic.refreshReportDataOnly === "function") {
+                    logic.refreshReportDataOnly();
+                }
                 if (tab === "admin-config") ui.applySettings();
                 if (tab === "admin-suppliers") this.renderSuppliers();
                 if (tab === "admin-wh") setTimeout(() => ui.initWarehouseMap(), 200);
@@ -2544,8 +2572,7 @@
                 if (user.role === "admin" || user.warehouseId === "all") {
                     document.getElementById("warehouse-label").innerText = "Visão Global Administrador";
                 } else {
-                    const wh = db.state.warehouses.find((w) => w.id === user.warehouseId);
-                    document.getElementById("warehouse-label").innerText = "Armazém: " + (wh ? wh.name : "Não vinculado");
+                    document.getElementById("warehouse-label").innerText = "Armazém: " + warehouseDisplayName(user.warehouseId);
                 }
                 this.applySettings();
                 logic.applyStoredTheme();
@@ -2553,6 +2580,14 @@
                 this.syncMobileMenuState();
                 this.stockScope = "all";
                 this.renderAll();
+                /* Garante que o FAB e o painel do bate-papo apliquem canAccess após o DOM e a sessão estarem alinhados ao estado. */
+                requestAnimationFrame(() => {
+                    try {
+                        db.state = normalizeState(db.state);
+                        auth.refreshCurrentUser();
+                        this.renderTeamChat({ force: true });
+                    } catch (_) {}
+                });
                 db.refreshFromCloud().catch(() => {});
                 if (this.isBasicUser()) this.activateTab("stock");
                 else this.currentTab = document.querySelector(".nav-btn.nav-active")?.dataset?.tab || "dash";
@@ -2816,20 +2851,27 @@
                     const item = db.state.items.find((i) => i.id === payload);
                     if (!item) return alert("Item não encontrado.");
                     if (item.category !== "MATERIAL") return alert("Saída por pedido somente para materiais.");
+                    const saldo = Number(item.qty || 0);
+                    const estoqueZerado = saldo === 0;
+                    const maxQ = estoqueZerado ? 999999 : saldo;
+                    const avisoZerado = estoqueZerado
+                        ? `<p class="text-sm font-bold text-red-600 leading-snug">Estoque zerado. <span class="underline decoration-red-400">Permite solicitar</span> — informe a quantidade desejada; o almoxarife fará a separação após reposição.</p>`
+                        : "";
                     content.innerHTML = `
                         <div class="p-8">
                             <div class="flex items-start justify-between gap-4 mb-6">
                                 <div>
                                     <p class="text-[10px] font-bold uppercase text-blue-600 tracking-widest">Incluir no pedido</p>
                                     <h3 class="text-lg font-bold text-slate-800 mt-1">${item.name}</h3>
-                                    <p class="text-xs text-slate-500 mt-1">Disponível: <b>${item.qty} ${item.unit || "UN"}</b></p>
+                                    <p class="text-xs text-slate-500 mt-1">Disponível: <b>${saldo} ${item.unit || "UN"}</b></p>
+                                    ${avisoZerado}
                                 </div>
                                 <span class="text-xs font-mono bg-slate-100 px-2 py-1 rounded-lg">${item.code || "—"}</span>
                             </div>
                             <form onsubmit="logic.confirmStockOut(event, '${item.id}')" class="space-y-4">
                                 <div>
                                     <label class="text-xs font-bold text-slate-500 uppercase">Quantidade para o pedido</label>
-                                    <input type="number" id="so-qty" min="1" max="${item.qty}" value="1" required class="w-full p-3 border rounded-xl mt-1">
+                                    <input type="number" id="so-qty" min="1" max="${maxQ}" value="1" required class="w-full p-3 border rounded-xl mt-1">
                                 </div>
                                 <p class="text-xs text-slate-500 leading-relaxed">O item será adicionado ao <b>carrinho do pedido</b>. O saldo no estoque <b>só é baixado quando o almoxarife</b> marcar a solicitação como <b>entregue</b> (não nesta tela de inclusão). Depois use <b>Finalizar solicitação</b> no topo.</p>
                                 <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold">Adicionar ao pedido</button>
@@ -2878,44 +2920,88 @@
                 const willOpen = panel.classList.contains("hidden");
                 panel.classList.toggle("hidden", !willOpen);
                 if (willOpen) {
-                    this.renderTeamChat();
+                    this.renderTeamChat({ force: true });
                     db.refreshFromCloud().catch(() => {});
+                    const box = document.getElementById("team-chat-messages");
+                    requestAnimationFrame(() => {
+                        if (box) box.scrollTop = box.scrollHeight;
+                    });
                 }
             },
             closeTeamChatPanel() {
                 const panel = document.getElementById("team-chat-panel");
                 if (panel) panel.classList.add("hidden");
             },
-            renderTeamChat() {
+            renderTeamChat(options) {
                 const root = document.getElementById("team-chat-root");
-                const box = document.getElementById("team-chat-messages");
-                const form = document.getElementById("team-chat-form");
-                if (!root || !box) return;
+                if (!root) return;
                 const u = auth.currentUser;
                 const can = !!(u && canAccessTeamChat(u));
-                root.classList.toggle("hidden", !can);
-                if (form) form.classList.toggle("hidden", !can);
-                if (!can) return;
+                if (can) {
+                    if (root.parentNode !== document.body) {
+                        try {
+                            document.body.appendChild(root);
+                        } catch (__) {}
+                    }
+                    root.classList.remove("hidden");
+                    const formEl = document.getElementById("team-chat-form");
+                    if (formEl) formEl.classList.remove("hidden");
+                } else {
+                    root.classList.add("hidden");
+                    const formEl = document.getElementById("team-chat-form");
+                    if (formEl) formEl.classList.add("hidden");
+                    return;
+                }
+                const box = document.getElementById("team-chat-messages");
+                const form = document.getElementById("team-chat-form");
+                const input = document.getElementById("team-chat-input");
+                if (!box) return;
+                if (!options?.force && input && document.activeElement === input) return;
                 const list = [...(db.state.chatMessages || [])].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+                const last = list.length ? list[list.length - 1] : null;
+                const sig = `${list.length}|${last?.id || ""}`;
+                if (!options?.force && this._lastTeamChatSig === sig) return;
+                this._lastTeamChatSig = sig;
                 const myKey = auth.normalizeUsername(auth.currentUser.user);
                 box.innerHTML = list.length
                     ? list.map((m) => {
                         const mine = auth.normalizeUsername(m.user) === myKey;
                         const time = new Date(m.createdAt).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
                         const roleTag = formatRolePt(m.role || "usuario");
+                        const bubbleClass = mine
+                            ? "bg-gradient-to-br from-indigo-600 to-sky-600 text-white rounded-br-md"
+                            : "bg-white border border-slate-200 text-slate-800 rounded-bl-md shadow-sm";
+                        const bubbleInClass = mine ? "" : " team-chat-bubble-in";
                         return `
                         <div class="flex ${mine ? "justify-end" : "justify-start"}">
-                            <div class="max-w-[88%] rounded-2xl px-3 py-2 text-sm shadow-sm ${mine ? "bg-emerald-600 text-white rounded-br-md" : "bg-white border border-slate-200 text-slate-800 rounded-bl-md"}">
-                                ${mine ? "" : `<p class="text-[10px] font-bold text-emerald-700 mb-0.5">${escapeHtml(m.userName)} <span class="text-slate-400 font-normal">· ${roleTag}</span></p>`}
+                            <div class="max-w-[90%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm ${bubbleClass}${bubbleInClass}">
+                                ${mine ? "" : `<p class="text-[10px] font-bold text-indigo-600 mb-0.5">${escapeHtml(m.userName)} <span class="text-slate-400 font-normal">· ${roleTag}</span></p>`}
                                 <p class="whitespace-pre-wrap break-words">${escapeHtml(m.text)}</p>
-                                <p class="text-[9px] opacity-75 mt-1">${time}</p>
+                                <p class="text-[9px] opacity-80 mt-1">${time}</p>
                             </div>
                         </div>`;
                     }).join("")
-                    : `<p class="text-center text-slate-400 text-sm py-10 px-2">Nenhuma mensagem ainda.<br><span class="text-xs">Envie o primeiro recado à equipe.</span></p>`;
+                    : `<p class="text-center text-slate-400 text-sm py-10 px-2">Nenhuma mensagem ainda.<br><span class="text-xs">Converse com almoxarifes e administradores.</span></p>`;
                 requestAnimationFrame(() => {
                     box.scrollTop = box.scrollHeight;
                 });
+            },
+            /** Atualização após sync: não reseta filtros/relatório; só dados e totais. */
+            applySyncRefresh() {
+                const t = this.currentTab || "dash";
+                if (t === "stock") this.renderStock();
+                if (t === "global") this.renderGlobalSearch();
+                this.renderRequests();
+                this.renderApiControl();
+                this.renderAdminUsers();
+                this.renderAdminWarehouses();
+                if (auth.currentUser?.role === "admin") {
+                    this.renderHistory();
+                    this.renderSuppliers();
+                }
+                this.updateStats();
+                if (typeof logic.refreshReportDataOnly === "function") logic.refreshReportDataOnly();
+                this.renderTeamChat();
             },
             renderAll() {
                 this.renderStock();
@@ -2930,21 +3016,23 @@
                     this.renderSuppliers();
                 }
                 this.updateStats();
-                this.renderTeamChat();
+                this._lastTeamChatSig = null;
+                this.renderTeamChat({ force: true });
             },
             renderReportFilters() {
                 const userSelect = document.getElementById("report-user");
                 if (!userSelect) return;
+                const prev = userSelect.value;
                 const options = ['<option value="">Todos os usuários</option>']
                     .concat(db.state.users.map((u) => `<option value="${u.user}">${u.name} (${u.user})</option>`));
                 userSelect.innerHTML = options.join("");
+                if (prev && Array.from(userSelect.options).some((o) => o.value === prev)) userSelect.value = prev;
                 const monthInput = document.getElementById("report-ref-month");
                 const yearInput = document.getElementById("report-ref-year");
                 if (monthInput && !monthInput.value) monthInput.value = new Date().toISOString().slice(0, 7);
                 if (yearInput && !yearInput.value) yearInput.value = String(new Date().getFullYear());
                 logic.handleReportPeriodChange();
-                this.renderReportPreview([]);
-                this.renderReportSummary([], "Resumo");
+                if (typeof logic.refreshReportDataOnly === "function") logic.refreshReportDataOnly();
             },
             renderReportPreview(rows) {
                 const tbody = document.getElementById("report-preview");
@@ -3074,8 +3162,7 @@
                     alertBox.innerHTML = '<p class="text-emerald-700">Nenhum alerta de estoque baixo no momento.</p>';
                 } else {
                     alertBox.innerHTML = lowItems.slice(0, 8).map((i) => {
-                        const wh = db.state.warehouses.find((w) => w.id === i.warehouseId);
-                        return `<div class="bg-white border border-amber-200 rounded-xl p-3"><b>${i.name}</b> está abaixo do mínimo (${i.qty}/${i.minQty}) - ${wh ? wh.name : "Não disponível"}</div>`;
+                        return `<div class="bg-white border border-amber-200 rounded-xl p-3"><b>${i.name}</b> está abaixo do mínimo (${i.qty}/${i.minQty}) - ${warehouseDisplayName(i.warehouseId)}</div>`;
                     }).join("");
                 }
                 if (epiExpiryAlerts.length) {
@@ -3131,12 +3218,18 @@
                         ${col("viewStock_item") ? `<td class="px-6 py-4 font-bold text-slate-700">${i.name}</td>` : ""}
                         ${col("viewStock_category") ? `<td class="px-6 py-4 text-xs">${i.category}</td>` : ""}
                         ${col("viewStock_area") ? `<td class="px-6 py-4 text-xs">${i.area === "SABESP" ? "SABESP" : "PRÓPRIO"}</td>` : ""}
-                        ${col("viewStock_qty") ? `<td class="px-6 py-4 font-black">${i.qty} ${i.unit || "UN"}</td>` : ""}
+                        ${col("viewStock_qty")
+                    ? `<td class="px-6 py-4 font-black">${i.qty} ${i.unit || "UN"}${canOutputItem(i) && Number(i.qty || 0) === 0
+                        ? '<span class="block text-red-600 text-[10px] font-bold mt-1 leading-tight">Estoque zerado — <span class="underline">permite solicitar</span></span>'
+                        : ""}</td>`
+                    : ""}
                         ${col("viewStock_min") ? `<td class="px-6 py-4 text-slate-400">${i.minQty} ${i.unit || "UN"}</td>` : ""}
                         ${col("viewStock_status")
                     ? `<td class="px-6 py-4">
-                            <span class="px-2 py-1 rounded-full text-[10px] font-bold ${i.qty <= i.minQty ? "bg-red-100 text-red-600" : "bg-green-100 text-green-600"}">
-                                ${i.qty <= i.minQty ? "BAIXO" : "OK"}
+                            <span class="px-2 py-1 rounded-full text-[10px] font-bold ${
+    Number(i.qty || 0) === 0 && i.category === "MATERIAL" ? "bg-red-200 text-red-700 ring-1 ring-red-300" : (i.qty <= i.minQty ? "bg-red-100 text-red-600" : "bg-green-100 text-green-600")
+}">
+                                ${Number(i.qty || 0) === 0 && i.category === "MATERIAL" ? "ZERADO" : (i.qty <= i.minQty ? "BAIXO" : "OK")}
                             </span>
                             ${expiryLabel(i)}
                         </td>`
@@ -3193,7 +3286,9 @@
                 if (!container) return;
                 container.innerHTML = matches.map((i) => {
                     const wh = db.state.warehouses.find((w) => w.id === i.warehouseId);
-                    return `<div class="bg-white p-5 rounded-2xl shadow-sm"><p class="font-bold">${i.name}</p><p class="text-xs text-slate-500">${i.category} • ${i.area === "SABESP" ? "SABESP" : "PRÓPRIO"} • Código: ${i.code || "-"}</p><p class="text-sm mt-2">Qtd: <b>${i.qty} ${i.unit || "UN"}</b></p><p class="text-xs text-slate-400 mt-2">${wh ? wh.name : "Não disponível"} - ${wh?.city || "Sem cidade"}</p></div>`;
+                    const whLabel = wh ? wh.name : warehouseDisplayName(i.warehouseId);
+                    const whCity = wh?.city || "Sem cidade";
+                    return `<div class="bg-white p-5 rounded-2xl shadow-sm"><p class="font-bold">${i.name}</p><p class="text-xs text-slate-500">${i.category} • ${i.area === "SABESP" ? "SABESP" : "PRÓPRIO"} • Código: ${i.code || "-"}</p><p class="text-sm mt-2">Qtd: <b>${i.qty} ${i.unit || "UN"}</b></p><p class="text-xs text-slate-400 mt-2">${whLabel} - ${whCity}</p></div>`;
                 }).join("") || '<div class="text-slate-400">Nenhum material encontrado.</div>';
             },
             renderRequests() {
@@ -3328,8 +3423,7 @@
                     if (d.itemId || d.itemName) parts.push(d.itemName || d.itemId || "");
                     if (d.qty != null) parts.push(`Qtd: ${d.qty}`);
                     if (d.warehouseId) {
-                        const wh = db.state.warehouses.find((w) => w.id === d.warehouseId);
-                        if (wh) parts.push(wh.name);
+                        parts.push(warehouseDisplayName(d.warehouseId));
                     }
                     if (d.orderId) parts.push(`Pedido: ${String(d.orderId).slice(-8)}`);
                     return parts.filter(Boolean).join(" · ") || "—";
@@ -3410,9 +3504,7 @@
 
                 const employees = (db.state.apiEmployees || []).filter((e) => canGlobal || e.warehouseId === "all" || e.warehouseId === myWarehouse);
                 const employeeOptions = employees.map((e) => {
-                    const wh = e.warehouseId === "all"
-                        ? "Todos"
-                        : (db.state.warehouses.find((w) => w.id === e.warehouseId)?.name || e.warehouseId);
+                    const wh = e.warehouseId === "all" ? "Todos" : warehouseDisplayName(e.warehouseId);
                     return `<option value="${e.id}">${e.name}${e.roleName ? ` - ${e.roleName}` : ""} (${wh})</option>`;
                 }).join("");
 
@@ -3423,7 +3515,7 @@
                     .filter((i) => canGlobal || i.warehouseId === myWarehouse)
                     .sort((a, b) => String(a.name || "").localeCompare(String(b.name || ""), "pt-BR"))
                     .map((i) => {
-                        const whName = db.state.warehouses.find((w) => w.id === i.warehouseId)?.name || i.warehouseId;
+                        const whName = warehouseDisplayName(i.warehouseId);
                         return `<option value="${i.id}">${i.name} - saldo ${Number(i.qty || 0)} ${i.unit || "UN"} (${whName})</option>`;
                     }).join("");
                 issueItem.innerHTML = `<option value="">Selecione o IPI no estoque</option>${epiOptions}`;
@@ -3466,9 +3558,7 @@
                 const canManageUsers = auth.hasPermission("canManageUsers");
                 const canGrantIpi = ["admin", "almoxarife"].includes(normalizeRoleValue(auth.currentUser?.role));
                 tbody.innerHTML = db.state.users.map((u) => {
-                    const wh = u.warehouseId === "all"
-                        ? "Todos"
-                        : (db.state.warehouses.find((w) => w.id === u.warehouseId)?.name || "Não disponível");
+                    const wh = u.warehouseId === "all" ? "Todos" : warehouseDisplayName(u.warehouseId);
                     return `
                         <tr>
                             <td class="px-6 py-4 font-semibold">${u.name}</td>
@@ -3508,7 +3598,6 @@
                     <p class="text-[10px] font-bold uppercase text-sky-600 tracking-wider mb-2">Armazém selecionado</p>
                     <h4 class="text-lg font-bold text-slate-900">${esc(w.name)}</h4>
                     <dl class="mt-3 space-y-2 text-slate-600">
-                        <div><dt class="text-xs font-bold text-slate-400">ID</dt><dd class="font-mono text-xs mt-0.5">${esc(w.id)}</dd></div>
                         <div><dt class="text-xs font-bold text-slate-400">Cidade</dt><dd class="mt-0.5">${esc(w.city) || "—"}</dd></div>
                         <div><dt class="text-xs font-bold text-slate-400">Telefone</dt><dd class="mt-0.5">${esc(w.phone) || "—"}</dd></div>
                         <div><dt class="text-xs font-bold text-slate-400">Materiais vinculados</dt><dd class="mt-0.5 font-bold text-slate-800">${itemsCount}</dd></div>
@@ -3691,7 +3780,7 @@
                 db.state = normalizeState(db.state);
                 input.value = "";
                 await db.save();
-                ui.renderTeamChat();
+                ui.renderTeamChat({ force: true });
             },
             buildRequestFingerprint(lines, reqDate, signature) {
                 const normalizedLines = [...(lines || [])]
@@ -3709,8 +3798,9 @@
                     alert("Informe uma quantidade válida.");
                     return false;
                 }
-                if (qty > item.qty) {
-                    alert(`Quantidade maior que o saldo disponível (${item.qty}).`);
+                const saldo = Number(item.qty || 0);
+                if (saldo > 0 && qty > saldo) {
+                    alert(`Quantidade maior que o saldo disponível (${saldo}).`);
                     return false;
                 }
                 const existing = this.requestCart.find((l) => l.itemId === item.id);
@@ -4136,6 +4226,11 @@
             },
             refreshReportPreview() {
                 if (!this.must("canManageOrders", "Sem permissão para relatórios.")) return;
+                this.refreshReportDataOnly();
+            },
+            /** Atualiza tabela e resumo do relatório a partir dos filtros já preenchidos (sem `alert`, uso em sync). */
+            refreshReportDataOnly() {
+                if (!auth.currentUser || !auth.hasPermission("canManageOrders")) return;
                 const rows = this.getReportRows();
                 ui.renderReportPreview(rows);
                 this.buildReportSummary(rows);
@@ -4721,6 +4816,8 @@
                 doc.setFontSize(11);
                 doc.text("Solicitante: " + (order.requesterName || "-"), 20, y);
                 y += 10;
+                doc.text("Armazém: " + warehouseDisplayName(order.warehouseId), 20, y);
+                y += 10;
                 doc.text("Data da solicitação: " + new Date(order.requestDate || order.date).toLocaleDateString("pt-BR"), 20, y);
                 y += 10;
                 doc.text("Assinatura do solicitante: " + (order.requesterSignature || "-"), 20, y);
@@ -4745,7 +4842,7 @@
                     if (tab === "requests" && auth.currentUser && navigator.onLine) {
                         try {
                             await db.refreshFromCloud();
-                            if (ui.currentTab === "requests") ui.renderOrders();
+                            if (ui.currentTab === "requests") ui.renderRequests();
                         } catch (_) {
                             // Mantém navegação local mesmo se a nuvem falhar.
                         }
@@ -4782,7 +4879,7 @@
             syncTimerId = setInterval(() => {
                 if (!auth.currentUser || !navigator.onLine) return;
                 db.refreshFromCloud();
-            }, 1200);
+            }, 4000);
         }
 
         window.onload = async () => {
@@ -4843,9 +4940,17 @@
                 if (tcf) tcf.addEventListener("submit", (ev) => logic.sendTeamChatMessage(ev));
                 document.getElementById("team-chat-fab")?.addEventListener("click", () => ui.toggleTeamChatPanel());
                 document.getElementById("team-chat-close")?.addEventListener("click", () => ui.closeTeamChatPanel());
-                window.addEventListener("focus", () => db.refreshFromCloud());
+                let debouncedSyncTimer = null;
+                const debouncedCloudPull = (delay) => {
+                    if (debouncedSyncTimer) clearTimeout(debouncedSyncTimer);
+                    debouncedSyncTimer = setTimeout(() => {
+                        debouncedSyncTimer = null;
+                        db.refreshFromCloud();
+                    }, delay);
+                };
+                window.addEventListener("focus", () => debouncedCloudPull(2800));
                 document.addEventListener("visibilitychange", () => {
-                    if (!document.hidden) db.refreshFromCloud();
+                    if (!document.hidden) debouncedCloudPull(1200);
                 });
                 window.addEventListener("online", () => {
                     setTimeout(() => db.refreshFromCloud(), 500);

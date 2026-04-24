@@ -1,4 +1,5 @@
 const ROOT_FOLDER_ID = "1XrxLScRhIQ7iNciyWkoAHVaDFIhKYmUO";
+const LEGACY_ROOT_FOLDER_ID = "1dQ47OF8nmOMPnBGRE1IeTSZ-WR4lo-DG";
 const MAIN_DB_FILENAME = "database.json";
 const DEFAULT_VERSION = 1;
 
@@ -76,8 +77,17 @@ function jsonOutput(data) {
 }
 
 function ensureRootFolder() {
-  const folderId = getRootFolderId();
-  if (folderId) return DriveApp.getFolderById(folderId);
+  const primaryId = getRootFolderId();
+  if (primaryId) {
+    try {
+      return DriveApp.getFolderById(primaryId);
+    } catch (_) {}
+  }
+  if (typeof LEGACY_ROOT_FOLDER_ID !== "undefined" && LEGACY_ROOT_FOLDER_ID) {
+    try {
+      return DriveApp.getFolderById(String(LEGACY_ROOT_FOLDER_ID));
+    } catch (_) {}
+  }
   const folders = DriveApp.getFoldersByName("almoxarifado");
   if (folders.hasNext()) return folders.next();
   return DriveApp.createFolder("almoxarifado");
